@@ -166,7 +166,13 @@ function App() {
         <div className="nav-links">
           <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Inicio</Link>
           <Link to="/favorites" className={location.pathname === '/favorites' ? 'active' : ''}>Favoritos</Link>
+          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/bitcoin" className={location.pathname === '/coin/bitcoin' ? 'active' : ''}>Bitcoin</Link>
+          <Link to=" https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/tether" className={location.pathname === '/coin/bitcoin' ? 'active' : ''}>Tether</Link>
+          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/ethereum" className={location.pathname === '/coin/bitcoin' ? 'active' : ''}>Ethereum</Link>
+          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/solana" className={location.pathname === '/coin/bitcoin' ? 'active' : ''}>Solana</Link>
         </div>
+        https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/solana
+       
       </nav>
       
       <div className="container">
