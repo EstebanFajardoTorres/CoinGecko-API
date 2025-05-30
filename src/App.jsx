@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react'
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { useState, useEffect, useCallback } from 'react'
+import { Routes, Route, Link, useLocation, Navigate } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faStar as faStarSolid } from '@fortawesome/free-solid-svg-icons'
 import { faStar as faStarRegular } from '@fortawesome/free-regular-svg-icons'
+import { supabase } from './lib/supabase'
 import './App.css'
 
 // Componentes
 import CoinDetail from './components/CoinDetail'
 import Favorites from './components/Favorites'
+import Auth from './components/Auth'
 
 function App() {
+  const [session, setSession] = useState(null)
   const [coins, setCoins] = useState([])
   const [filteredCoins, setFilteredCoins] = useState([])
   const [loading, setLoading] = useState(true)
@@ -20,6 +23,7 @@ function App() {
     const savedFavorites = localStorage.getItem('cryptoFavorites')
     return savedFavorites ? JSON.parse(savedFavorites) : []
   })
+  const [debouncedSearch, setDebouncedSearch] = useState(search)
   const location = useLocation()
   
   useEffect(() => {
@@ -44,11 +48,20 @@ function App() {
     fetchCoins()
   }, [])
   
+  // Debounce para la búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [search])
+
   useEffect(() => {
     // Filtrar monedas basado en el término de búsqueda
     const results = coins.filter(coin => 
-      coin.name.toLowerCase().includes(search.toLowerCase()) || 
-      coin.symbol.toLowerCase().includes(search.toLowerCase())
+      coin.name.toLowerCase().includes(debouncedSearch.toLowerCase()) || 
+      coin.symbol.toLowerCase().includes(debouncedSearch.toLowerCase())
     )
     
     // Ordenar monedas según la configuración actual
@@ -63,11 +76,25 @@ function App() {
     })
     
     setFilteredCoins(sortedResults)
-  }, [search, coins, sortConfig])
+  }, [debouncedSearch, coins, sortConfig])
   
   useEffect(() => {
     localStorage.setItem('cryptoFavorites', JSON.stringify(favorites))
   }, [favorites])
+  
+  useEffect(() => {
+    // Comprobar sesión actual
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+    })
+
+    // Escuchar cambios en la autenticación
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
   
   const handleSort = (key) => {
     let direction = 'ascending'
@@ -98,13 +125,17 @@ function App() {
     return (
       <>
         <div className="search-sort-container">
-          <div className="search-container">
-            <input 
+          <div className="search-container">              <input 
               type="text" 
               placeholder="Buscar criptomoneda..." 
               className="search-input"
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (value.length <= 20) { // Limitar longitud de búsqueda
+                  setSearch(value);
+                }
+              }}
             />
           </div>
           
@@ -161,29 +192,41 @@ function App() {
   
   return (
     <div className="app-container">
-      <nav className="floating-menu">
-        <div className="logo">CriptoTracker</div>
-        <div className="nav-links">
-          <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Inicio</Link>
-          <Link to="/favorites" className={location.pathname === '/favorites' ? 'active' : ''}>Favoritos</Link>
-          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/bitcoin" className={location.pathname === '/' ? 'active' : ''}>Bitcoin</Link>
-          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/tether" className={location.pathname === '/' ? 'active' : ''}>Tether</Link>
-          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/ethereum" className={location.pathname === '/' ? 'active' : ''}>Ethereum</Link>
-          <Link to="https://vigilant-fortnight-ggw7vx76qx42vwq5-5173.app.github.dev/coin/solana" className={location.pathname === '/' ? 'active' : ''}>Solana</Link>
-        </div>
-      </nav>
-      
-      <div className="container">
-        <h1>Mercado de Criptomonedas</h1>
-        
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/favorites" element={<Favorites favorites={getFavoriteCoins()} toggleFavorite={toggleFavorite} />} />
-          <Route path="/coin/:coinId" element={<CoinDetail />} />
-        </Routes>
-        
-       
-      </div>
+      {!session ? (
+        <Auth />
+      ) : (
+        <>
+          <nav className="floating-menu">
+            <div className="logo">CriptoTracker</div>
+            <div className="nav-links">
+              <Link to="/" className={location.pathname === '/' ? 'active' : ''}>Inicio</Link>
+              <Link to="/favorites" className={location.pathname === '/favorites' ? 'active' : ''}>Favoritos</Link>          
+              <Link to="/coin/bitcoin" className={location.pathname === '/coin/bitcoin' ? 'active' : ''}>Bitcoin</Link>
+              <Link to="/coin/tether" className={location.pathname === '/coin/tether' ? 'active' : ''}>Tether</Link>
+              <Link to="/coin/ethereum" className={location.pathname === '/coin/ethereum' ? 'active' : ''}>Ethereum</Link>
+              <Link to="/coin/solana" className={location.pathname === '/coin/solana' ? 'active' : ''}>Solana</Link>
+              <button 
+                onClick={() => supabase.auth.signOut()} 
+                className="logout-button"
+              >
+                Cerrar Sesión
+              </button>
+            </div>
+          </nav>
+          
+          <div className="container">
+            <h1>Mercado de Criptomonedas</h1>
+            
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/favorites" element={<Favorites favorites={getFavoriteCoins()} toggleFavorite={toggleFavorite} />} />
+              <Route path="/coin/:coinId" element={<CoinDetail />} />
+            </Routes>
+            
+           
+          </div>
+        </>
+      )}
     </div>
   )
 }
